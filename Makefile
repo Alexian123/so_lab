@@ -1,7 +1,7 @@
-bmpstats: bmpstats.c
+filestats: filestats.c
 	gcc -Wall -o $@ $<
 	
 clean:
-	rm -f bmpstats stats.txt
+	rm -f filestats stats.txt
 
 .PHONY: clean

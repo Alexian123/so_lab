@@ -3,7 +3,7 @@
 #### Build & run
 ```
 make
-./bmpstats sample.bmp   # output in 'stats.txt'
+./filestats test_dir    # output in 'stats.txt'
 ```
 
 #### Clean
