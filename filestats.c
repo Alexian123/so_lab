@@ -8,18 +8,17 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <sys/wait.h>
 
 #define MAX_FILE_PATH_LEN 128
 
-#define OUT_FILE_PATH "stats.txt"
+#define OUT_FLE_PATH_SUFFIX "stats.txt"
 #define MAX_OUT_FILE_ENTRY_SIZE 512   // bytes
 #define MAX_DATETIME_LEN 32
 
 #define BMP_HEADER_WIDTH_OFFSET 18
 
 static char tbuf[MAX_DATETIME_LEN] = "";    // buffer for storing date & time
-
-static int out_fd;  // output file descriptor
 static char buf[MAX_OUT_FILE_ENTRY_SIZE] = ""; // output buffer
 
 /* 
@@ -31,10 +30,12 @@ int read_next_int(int fd);
 /*
     Handlers for different file types
 */
-void handle_regular_file(const char *path, struct stat *stp);
-void handle_bmp_file(const char *path, struct stat *stp);
-void handle_link(const char *path, struct stat *stp);
-void handle_dir(const char *path, struct stat *stp);
+void write_regular_file_stats(const char *path, struct stat *stp);
+void write_bmp_file_stats(const char *path, struct stat *stp);
+void write_link_stats(const char *path, struct stat *stp);
+void write_dir_stats(const char *path, struct stat *stp);
+
+void convert_bmp_to_grayscale(const char *path);
 
 /*
     Write 'buf' to 'out_fd'
@@ -44,9 +45,9 @@ void write_to_output_file();
 
 int main(int argc, char **argv) {
     // check arguments
-    if (argc != 2) {
+    if (argc != 3) {
         fprintf(stderr, "Wrong number of arguments.\n");
-        fprintf(stderr, "Usage: %s <input_directory>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <input_directory> <output_directory>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
@@ -57,16 +58,11 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    // create output file -> rw-rw-r--
-    out_fd = creat(OUT_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
-    if (out_fd < 0) {
-        perror("Error creating output file");
-        exit(EXIT_FAILURE);
-    }
 
     // loop through all files from the input dir
     char file_path[MAX_FILE_PATH_LEN] = "";
     struct stat fst;
+    int pid = 0;    // temporarely store child pid
     for (struct dirent *dr = readdir(dirp); dr != NULL; dr = readdir(dirp)) {
         // skip "." and ".." implicit dirs
         if (strcmp(dr->d_name, ".") == 0 || strcmp(dr->d_name, "..") == 0) {
@@ -78,11 +74,12 @@ int main(int argc, char **argv) {
         strncat(file_path, argv[1], MAX_FILE_PATH_LEN - 1);
         strncat(file_path, "/", MAX_FILE_PATH_LEN - strlen(file_path) - 1);
         strncat(file_path, dr->d_name, MAX_FILE_PATH_LEN - strlen(file_path) - 1);
+        size_t path_len = strlen(file_path);
 
         // read file stats
         if (lstat(file_path, &fst) < 0) {
             perror("Error reading file stats");
-            continue;
+            exit(EXIT_FAILURE);
         }
 
         // get date & time of last modification as formatted string
@@ -90,21 +87,50 @@ int main(int argc, char **argv) {
         struct tm *lt = localtime(&t);
         strftime(tbuf, MAX_DATETIME_LEN, "%c", lt);
 
-        // handle file based on its type
-        if (S_ISREG(fst.st_mode)) {
-            // check if file has ".bmp" extension
-            size_t path_len = strlen(file_path);
-            if (file_path[path_len - 5] == '.' && file_path[path_len - 4] == 'b' && 
-                file_path[path_len - 3] == 'm' && file_path[path_len - 2] == 'p') {
-                handle_bmp_file(file_path, &fst);
-            } else {
-                handle_regular_file(file_path, &fst);
-            }
-        } else if (S_ISLNK(fst.st_mode)) {
-            handle_link(file_path, &fst);
-        } else if (S_ISDIR(fst.st_mode)) {
-            handle_dir(file_path, &fst);
+        // create child process
+        if ((pid = fork()) < 0) {
+            perror("Error creating process");
+            exit(EXIT_FAILURE);
         }
+
+        // handle file based on its type
+        if (file_path[path_len - 5] == '.' && file_path[path_len - 4] == 'b' && 
+            file_path[path_len - 3] == 'm' && file_path[path_len - 2] == 'p') {
+            if (pid == 0) { // 1st child
+                write_bmp_file_stats(file_path, &fst);
+                goto KILL_CHILDREN;
+            } else {    // parent
+                if ((pid = fork()) < 0) {   // create 2nd child
+                    perror("Error creating process");
+                    exit(EXIT_FAILURE);
+                }
+                if (pid == 0) { // 2nd child
+                    convert_bmp_to_grayscale(file_path);
+                    goto KILL_CHILDREN;
+                }
+            }
+        }
+
+        if (pid != 0) { 
+            continue;   // only parent process contiunes
+        }
+
+        if (S_ISREG(fst.st_mode)) {
+            write_regular_file_stats(file_path, &fst);
+        } else if (S_ISLNK(fst.st_mode)) {
+            write_link_stats(file_path, &fst);
+        } else if (S_ISDIR(fst.st_mode)) {
+            write_dir_stats(file_path, &fst);
+        }
+
+    KILL_CHILDREN:
+        exit(0);
+    }
+
+    // wait for all children to die
+    int status = 0;     // store child process status
+    while ((pid = wait(&status)) > 0) {
+        printf("Process with pid %d ended with code %d\n", pid, status);
     }
     
     // close input dir
@@ -112,10 +138,6 @@ int main(int argc, char **argv) {
         perror("Error closing input directory");
     }
 
-    // close output file
-    if (close(out_fd) < 0) {
-        perror("Error closing output file");
-    }
 
     return 0;
 }
@@ -134,7 +156,7 @@ int read_next_int(int fd) {
     return val;
 }
 
-void handle_regular_file(const char *path, struct stat *stp) {
+void write_regular_file_stats(const char *path, struct stat *stp) {
     // write stats to buffer
     snprintf(buf, MAX_OUT_FILE_ENTRY_SIZE, 
     "file name: %s\nsize: %ld\nuser id: %d\n"
@@ -145,10 +167,10 @@ void handle_regular_file(const char *path, struct stat *stp) {
     (stp->st_mode & S_IRGRP) ? 'R' : '-', (stp->st_mode & S_IWGRP) ? 'W' : '-', (stp->st_mode & S_IXGRP) ? 'X' : '-',
     (stp->st_mode & S_IROTH) ? 'R' : '-', (stp->st_mode & S_IWOTH) ? 'W' : '-', (stp->st_mode & S_IXOTH) ? 'X' : '-');
 
-    write_to_output_file();
+    write_to_output_file(path);
 }
 
-void handle_bmp_file(const char *path, struct stat *stp) {
+void write_bmp_file_stats(const char *path, struct stat *stp) {
     // open file
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
@@ -185,11 +207,11 @@ void handle_bmp_file(const char *path, struct stat *stp) {
     (stp->st_mode & S_IRGRP) ? 'R' : '-', (stp->st_mode & S_IWGRP) ? 'W' : '-', (stp->st_mode & S_IXGRP) ? 'X' : '-',
     (stp->st_mode & S_IROTH) ? 'R' : '-', (stp->st_mode & S_IWOTH) ? 'W' : '-', (stp->st_mode & S_IXOTH) ? 'X' : '-');
 
-    write_to_output_file();
+    write_to_output_file(path);
 
 }
 
-void handle_link(const char *path, struct stat *stp) {
+void write_link_stats(const char *path, struct stat *stp) {
     // read stats of target file
     struct stat tgf;
     if (stat(path, &tgf) < 0) {
@@ -207,10 +229,10 @@ void handle_link(const char *path, struct stat *stp) {
     (stp->st_mode & S_IRGRP) ? 'R' : '-', (stp->st_mode & S_IWGRP) ? 'W' : '-', (stp->st_mode & S_IXGRP) ? 'X' : '-',
     (stp->st_mode & S_IROTH) ? 'R' : '-', (stp->st_mode & S_IWOTH) ? 'W' : '-', (stp->st_mode & S_IXOTH) ? 'X' : '-');
 
-    write_to_output_file();
+    write_to_output_file(path);
 }
 
-void handle_dir(const char *path, struct stat *stp) {
+void write_dir_stats(const char *path, struct stat *stp) {
     // write stats to buffer
     snprintf(buf, MAX_OUT_FILE_ENTRY_SIZE, 
     "directory name: %s\nuser id: %d\n"
@@ -221,15 +243,29 @@ void handle_dir(const char *path, struct stat *stp) {
     (stp->st_mode & S_IRGRP) ? 'R' : '-', (stp->st_mode & S_IWGRP) ? 'W' : '-', (stp->st_mode & S_IXGRP) ? 'X' : '-',
     (stp->st_mode & S_IROTH) ? 'R' : '-', (stp->st_mode & S_IWOTH) ? 'W' : '-', (stp->st_mode & S_IXOTH) ? 'X' : '-');
 
-    write_to_output_file();
+    write_to_output_file(path);
 }
 
-void write_to_output_file() {
+void convert_bmp_to_grayscale(const char *path) {
+
+}
+
+void write_to_output_file(const char *path) {
+    // create output file -> rw-rw-r--
+    int out_fd = creat(OUT_FLE_PATH_SUFFIX, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+    if (out_fd < 0) {
+        perror("Error creating output file");
+        return;
+    }
     size_t len = strlen(buf);
     int ret_val = write(out_fd, buf, len);
     if (ret_val < 0) {
         perror("Error writing output file");
     } else if (ret_val != len) {
         fprintf(stderr, "Error writing output file: Wrote %d bytes instead of %lu\n", ret_val, len);
+    }
+    // close output file
+    if (close(out_fd) < 0) {
+        perror("Error closing output file");
     }
 }
