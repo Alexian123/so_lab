@@ -1,0 +1,9 @@
+file name: in/file.txt
+size: 0
+user id: 1000
+time of last modification: Mon Nov  6 23:58:06 2023
+number of hard links: 1
+user permissions: RW-
+group permissions: R--
+others permissions: R--
+

@@ -1,0 +1,11 @@
+file name: in/sample.bmp
+height: 1280
+width: 1920
+size: 7372938
+user id: 1000
+time of last modification: Tue Oct 31 19:13:52 2023
+number of hard links: 1
+user permissions: RW-
+group permissions: R--
+others permissions: R--
+

@@ -1,0 +1,7 @@
+directory name: in/dir1
+user id: 1000
+time of last modification: Sun Nov 19 23:57:16 2023
+user permissions: RWX
+group permissions: R-X
+others permissions: R-X
+

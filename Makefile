@@ -2,6 +2,6 @@ filestats: filestats.c
 	gcc -Wall -o $@ $<
 	
 clean:
-	rm -f filestats stats.txt
+	rm -rf filestats
 
 .PHONY: clean
