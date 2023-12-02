@@ -1,8 +1,0 @@
-link name: in/sample.bmp.lnk
-link size: 10
-target file size: 7372938
-time of last modification: Mon Nov  6 23:58:34 2023
-user permissions: RWX
-group permissions: RWX
-others permissions: RWX
-

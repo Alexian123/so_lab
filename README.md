@@ -2,8 +2,7 @@
 
 #### Build & run
 ```
-make
-./filestats test_dir    # output in 'stats.txt'
+make run
 ```
 
 #### Clean
