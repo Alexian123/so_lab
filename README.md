@@ -11,7 +11,7 @@ The **include** directory contains headers used in the C program.
 
 This project uses a **Makefile** for a simpler and more scalable build.
 
-## Makefile informaton
+## Makefile information
 #### Build & Run
 ```
 make run
@@ -26,19 +26,19 @@ make clean
 After running this command, **filestats** (the main binary), the **in** directory and the **out** directory will all be REMOVED.
 
 ## Running without the Makefile
-Compile the source file using gcc:
+Compile the source file using gcc:<br>
 ```gcc -Wall -Iinclude filestats.c -o filestats```
 
 
 You will need to provide EXISTING input and output directories.
-For this example, we will use the files from **in.bak**:
-```mkdir input```
+For this example, we will use the files from **in.bak**:<br>
+```mkdir input```<br>
 ```cp -r ./in.bak/* ./input```
 
-Then we create an output directory:
+Then we create an output directory:<br>
 ```mkdir output```
 
-Now we run the program:
+Now we run the program:<br>
 ```./filestats input output a```
 
 The last argument is a character which **count_correct_sentences.sh** will use to determine the number of correct sentences which contain it.
