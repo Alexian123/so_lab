@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -Iinclude -g
+CFLAGS=-Wall -Iinclude
 
 SRC=filestats.c
 BIN=filestats

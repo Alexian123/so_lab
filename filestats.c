@@ -16,6 +16,9 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
+    // count how many correct sentnces there are in all regular files
+    int num_correct_senteces = 0;
+
     // skip first 2 entries from input dir ('.' and '..')
     struct dirent *dr = readdir(dirp);
     dr = readdir(dirp);
@@ -51,6 +54,13 @@ int main(int argc, char **argv) {
         strncat(out_path, dr->d_name, MAX_FILE_PATH_LEN - strlen(out_path) - 1);
         strncat(out_path, "_", MAX_FILE_PATH_LEN - strlen(out_path) - 1);
         strncat(out_path, OUT_FLE_PATH_SUFFIX, MAX_FILE_PATH_LEN - strlen(out_path) - 1);
+
+        // create pipes (pipe1: child1 -> child2; pipe2: child2 -> parent)
+        int p1fd[2], p2fd[2];
+        if ((pipe(p1fd) < 0) || (pipe(p2fd) < 0)) {
+            perror("Error creating pipes");
+            exit(EXIT_FAILURE);
+        }
 
         // create 1st child process
         if ((pid = fork()) < 0) {
@@ -93,18 +103,80 @@ int main(int argc, char **argv) {
 
             if (pid == 0) { // 1st child
                 write_regular_file_stats(dr->d_name, &fst);
-                exit(EXIT_FAILURE); // should not return here after execlp!
+
+                // close both ends of pipe2
+                close(p2fd[0]);
+                close(p2fd[1]);
+
+                // close read end of pipe1
+                close(p1fd[0]);
+
+                // redirect stdout to write end of pipe1
+                if (dup2(p1fd[1], 1) < 0) {
+                    perror("Error redirecting stdout");
+                    exit(EXIT_FAILURE);
+                }
+
+                // send file contents through pipe1
+                execlp("cat", "cat", file_path, NULL);
+
+                exit(EXIT_FAILURE); // safety (should not return here after execlp)
             } else {    // parent
                 if ((pid = fork()) < 0) {   // create 2nd child
                     perror("Error creating process");
                     exit(EXIT_FAILURE);
                 }
                 if (pid == 0) { // 2nd child
-                    exit(EXIT_FAILURE); // should not return here after execlp!
+                    // close write end of pipe1
+                    close(p1fd[1]);
+
+                    // redirect stdin to read end of pipe1
+                    if (dup2(p1fd[0], 0) < 0) {
+                        perror("Error redirecting stdin");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    // close read end of pipe2
+                    close(p2fd[0]);
+
+                    // redirect stdout to write end of pipe2
+                    if (dup2(p2fd[1], 1) < 0) {
+                        perror("Error redirecting stdout");
+                        exit(EXIT_FAILURE);
+                    }
+                    
+                    // call script which reads from stdin and writes to stdout
+                    execlp("wc", "wc", "-l", NULL);
+
+                    exit(EXIT_FAILURE); // safety (should not return here after execlp!)
                 }
+                // parent
+                
+                // close both ends of pipe1
+                close(p1fd[0]);
+                close(p1fd[1]);
+
+                // close write end of pipe2
+                close(p2fd[1]);
+
+                // read number from pipe2 as string
+                char bf[16] = "";
+                if (read(p2fd[0], bf, sizeof(bf)) < 0) {
+                    perror("Error reading from pipe");
+                    exit(EXIT_FAILURE);
+                }
+
+                // update total number of correct sentences
+                num_correct_senteces += atoi(bf);
             }
 
         }
+
+        // make sure all pipes are closed
+        close(p1fd[0]);
+        close(p1fd[1]);
+        close(p2fd[0]);
+        close(p2fd[1]);
     }
 
     // wait for all the children to die
@@ -115,6 +187,8 @@ int main(int argc, char **argv) {
     
     // close input dir
     closedir(dirp);
+
+    printf("%d correct sentences which contain the character \'%c\' have been identified\n", num_correct_senteces, 'A');
 
     return 0;
 }
