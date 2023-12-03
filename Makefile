@@ -4,9 +4,11 @@ CFLAGS=-Wall -Iinclude
 SRC=filestats.c
 BIN=filestats
 
-IN=in
 IN_BAK=in.bak
+IN=in
 OUT=out
+
+CHAR=a
 
 $(BIN): $(SRC)
 	$(CC) $(CFLAGS) -o $@ $<
@@ -14,7 +16,7 @@ $(BIN): $(SRC)
 
 run: clean $(BIN)
 	cp -r ./$(IN_BAK) ./$(IN)
-	./$(BIN) $(IN) $(OUT)
+	./$(BIN) $(IN) $(OUT) $(CHAR)
 
 clean:
 	rm -rf $(BIN) $(IN) $(OUT)

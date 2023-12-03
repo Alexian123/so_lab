@@ -7,7 +7,7 @@ The **include** directory contains headers used in the C program.
 
 **filestats.c** is the main (and only) source file.
 
-**count_correct_sentences.sh** is a script which reads lines from stdin until EOF and outputs the number of correct sentences to stdout.
+**count_correct_sentences.sh** is a shell script which reads lines from stdin until EOF and outputs the number of correct sentences to stdout.
 
 This project uses a **Makefile** for a simpler and more scalable build.
 
@@ -39,6 +39,6 @@ Then we create an output directory:
 ```mkdir output```
 
 Now we run the program:
-```./filestats input output A```
+```./filestats input output a```
 
 The last argument is a character which **count_correct_sentences.sh** will use to determine the number of correct sentences which contain it.

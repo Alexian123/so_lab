@@ -3,9 +3,9 @@
 
 int main(int argc, char **argv) {
     // check arguments
-    if (argc != 3) {
+    if (argc != 4) {
         fprintf(stderr, "Wrong number of arguments.\n");
-        fprintf(stderr, "Usage: %s <input_directory> <output_directory>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <input_directory> <output_directory> <c>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
                     }
                     
                     // call script which reads from stdin and writes to stdout
-                    execlp("wc", "wc", "-l", NULL);
+                    execlp("/bin/sh", "/bin/sh", "./count_correct_sentences.sh", argv[3], NULL);
 
                     exit(EXIT_FAILURE); // safety (should not return here after execlp!)
                 }
@@ -188,7 +188,7 @@ int main(int argc, char **argv) {
     // close input dir
     closedir(dirp);
 
-    printf("%d correct sentences which contain the character \'%c\' have been identified\n", num_correct_senteces, 'A');
+    printf("%d correct sentences which contain the character \'%c\' have been identified\n", num_correct_senteces, argv[3][0]);
 
     return 0;
 }
