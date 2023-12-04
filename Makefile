@@ -7,6 +7,7 @@ BIN=filestats
 IN_BAK=in.bak
 IN=in
 OUT=out
+OUT_ARCV=statistics.zip
 
 CHAR=a
 
@@ -19,6 +20,6 @@ run: clean $(BIN)
 	./$(BIN) $(IN) $(OUT) $(CHAR)
 
 clean:
-	rm -rf $(BIN) $(IN) $(OUT)
+	rm -rf $(BIN) $(IN) $(OUT) $(OUT_ARCV)
 
 .PHONY: clean run

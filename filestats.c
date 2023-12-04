@@ -179,15 +179,33 @@ int main(int argc, char **argv) {
         close(p2fd[1]);
     }
 
-    // wait for all the children to die
+    // wait for all the previous children to die
     int status = 0; // store child process status
     while ((pid = wait(&status)) > 0) {
         printf("Process with pid %d ended with code %d\n", pid, status);
     }
-    
+
     // close input dir
     closedir(dirp);
 
+    // create child process
+    if ((pid = fork()) < 0) {
+        perror("Error creating process");
+        exit(EXIT_FAILURE);
+    }
+
+    // archive the files from the output directory
+    if (pid == 0) { // child
+        execlp("zip", "zip", "-rj", OUT_ARCHIVE_NAME, argv[2], NULL);
+        exit(EXIT_FAILURE); // safety (should not return here after execlp!)
+    }
+    // parent
+
+    // wait for last child
+    pid = wait(&status);
+    printf("Process with pid %d ended with code %d\n", pid, status);
+    
+    // print final message
     printf("%d correct sentences which contain the character \'%c\' have been identified\n", num_correct_senteces, argv[3][0]);
 
     return 0;

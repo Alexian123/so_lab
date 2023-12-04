@@ -20,6 +20,8 @@
 
     #define MAX_DATETIME_LEN 32
 
+    #define OUT_ARCHIVE_NAME "statistics"
+
     static char tbuf[MAX_DATETIME_LEN] = "";    // buffer for storing date & time
     static char buf[MAX_OUT_FILE_ENTRY_SIZE] = ""; // output buffer
     static char out_path[MAX_FILE_PATH_LEN] = "";   // ouutput file path buffer

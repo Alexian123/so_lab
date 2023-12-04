@@ -25,7 +25,7 @@ make clean
 ```
 After running this command, **filestats** (the main binary), the **in** directory and the **out** directory will all be REMOVED.
 
-## Running without the Makefile
+## Running without the makefile
 Compile the source file using gcc:<br>
 ```gcc -Wall -Iinclude filestats.c -o filestats```
 
